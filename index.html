@@ -577,12 +577,7 @@
       </div>
       <div class="form-group">
         <label for="total-amount">總金額</label>
-        <input
-          type="number"
-          id="total-amount"
-          placeholder="請輸入總金額"
-          min="0"
-        />
+        <input type="text" id="total-amount" placeholder="例如：100+50+30" />
       </div>
       <div class="form-group">
         <label id="section-title">分攤明細</label>
@@ -921,8 +916,9 @@
           "個別自訂"
         )
           return;
-        const total =
-          parseFloat(document.getElementById("total-amount").value) || 0;
+        const total = evaluateMath(
+          document.getElementById("total-amount").value,
+        );
         const checked = document.querySelectorAll(".member-calc-check:checked");
         const each =
           checked.length > 0 ? (total / checked.length).toFixed(2) : 0;
@@ -1043,8 +1039,9 @@
         const type = document.querySelector(
           'input[name="split-type"]:checked',
         ).value;
-        const total =
-          parseFloat(document.getElementById("total-amount").value) || 0;
+        const total = evaluateMath(
+          document.getElementById("total-amount").value,
+        );
         const note = document.getElementById("expense-note").value;
         if (!item) {
           alert("請填寫消費項目！");
