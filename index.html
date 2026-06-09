@@ -920,11 +920,26 @@
           document.getElementById("total-amount").value,
         );
         const checked = document.querySelectorAll(".member-calc-check:checked");
-        const each =
-          checked.length > 0 ? (total / checked.length).toFixed(2) : 0;
-        members.forEach(
-          (n) => (document.getElementById(`result-${n}`).textContent = "0"),
-        );
+        const count = checked.length;
+
+        if (!count) return;
+
+        const each = Math.floor((total / count) * 100) / 100;
+
+        let remain = total;
+
+        checked.forEach((c, idx) => {
+          let amount;
+
+          if (idx === count - 1) {
+            amount = Number(remain.toFixed(2));
+          } else {
+            amount = each;
+            remain -= each;
+          }
+
+          document.getElementById(`result-${c.value}`).textContent = amount;
+        });
         checked.forEach(
           (c) =>
             (document.getElementById(`result-${c.value}`).textContent =
@@ -1222,87 +1237,115 @@
         container.appendChild(cards);
         container.appendChild(countIndicator);
       }
-
       function calculateSettlementSummary(data) {
         let s = {};
         members.forEach((m) => (s[m] = { paid: 0, owe: 0 }));
+
         data.forEach((exp) => {
-          if (s[exp.payer]) s[exp.payer].paid += exp.total;
-          for (let name in exp.shares)
-            if (s[name]) s[name].owe += exp.shares[name];
+          // ✔ 修正：付款金額應為實際總支出，而不是 shares 加總
+          const paidAmount = Number(exp.total || 0);
+
+          if (s[exp.payer]) {
+            s[exp.payer].paid += paidAmount;
+          }
+
+          // ✔ 應分攤金額維持 shares
+          for (let name in exp.shares) {
+            if (s[name]) {
+              s[name].owe += Number(exp.shares[name] || 0);
+            }
+          }
         });
 
         const grid = document.getElementById("settlement-matrix-body");
         grid.innerHTML = "";
+
         members.forEach((name) => {
-          const p = s[name].paid,
-            o = s[name].owe,
-            b = p - o;
+          const p = s[name].paid;
+          const o = s[name].owe;
+          const b = Math.round((p - o) * 100) / 100;
+
           const bClass =
             b > 0.05
               ? "balance-positive"
               : b < -0.05
                 ? "balance-negative"
                 : "balance-zero";
+
           const bText =
             b > 0.05
               ? `+${b.toFixed(1)} 應收`
               : b < -0.05
                 ? `${b.toFixed(1)} 應付`
                 : "0 已平帳";
+
           const initials = name.charAt(0);
+
           const card = document.createElement("div");
           card.className = "member-stat-card";
           card.innerHTML = `
-            <div class="member-stat-name">
-              <div class="member-avatar">${initials}</div>
-              ${name}
-            </div>
-            <div class="stat-row"><span class="label">代墊金額</span><span class="val">${p.toFixed(1)} 元</span></div>
-            <div class="stat-row"><span class="label">應分攤</span><span class="val">${o.toFixed(1)} 元</span></div>
-            <span class="balance-badge ${bClass}">${bText}</span>`;
+      <div class="member-stat-name">
+        <div class="member-avatar">${initials}</div>
+        ${name}
+      </div>
+      <div class="stat-row"><span class="label">代墊金額</span><span class="val">${p.toFixed(1)} 元</span></div>
+      <div class="stat-row"><span class="label">應分攤</span><span class="val">${o.toFixed(1)} 元</span></div>
+      <span class="balance-badge ${bClass}">${bText}</span>
+    `;
           grid.appendChild(card);
         });
 
         let creditors = [],
           debtors = [];
+
         for (let n in s) {
           const b = Math.round((s[n].paid - s[n].owe) * 100) / 100;
+
           if (b > 0.05) creditors.push({ name: n, amount: b });
           else if (b < -0.05) debtors.push({ name: n, amount: Math.abs(b) });
         }
 
         const rc = document.getElementById("summary-results-container");
+
         if (!creditors.length && !debtors.length) {
           rc.innerHTML =
             '<div class="no-data">所有帳目均已平帳，無須轉移債權。</div>';
           return;
         }
+
         const list = document.createElement("div");
         list.className = "transfer-list";
+
         let ci = 0,
           di = 0;
+
         while (ci < creditors.length && di < debtors.length) {
-          const cr = creditors[ci],
-            db = debtors[di];
+          const cr = creditors[ci];
+          const db = debtors[di];
+
           const t = Math.min(cr.amount, db.amount);
+
           if (t > 0.01) {
             const item = document.createElement("div");
             item.className = "transfer-item";
             item.innerHTML = `
-              <div class="names">
-                <strong>${db.name}</strong>
-                <span class="arrow">→</span>
-                <strong>${cr.name}</strong>
-              </div>
-              <span class="transfer-amount">${t.toFixed(1)} 元</span>`;
+        <div class="names">
+          <strong>${db.name}</strong>
+          <span class="arrow">→</span>
+          <strong>${cr.name}</strong>
+        </div>
+        <span class="transfer-amount">${t.toFixed(1)} 元</span>
+      `;
             list.appendChild(item);
           }
+
           cr.amount -= t;
           db.amount -= t;
+
           if (cr.amount <= 0.05) ci++;
           if (db.amount <= 0.05) di++;
         }
+
         rc.innerHTML = "";
         rc.appendChild(list);
       }
